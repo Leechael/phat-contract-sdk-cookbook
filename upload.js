@@ -4,10 +4,16 @@ const util = require('util')
 const fs = require('fs')
 const Phala = require('@phala/sdk')
 const { typeDefinitions } = require('@polkadot/types');
-const { ApiPromise, wsProvider, Keyring, WsProvider } = require('@polkadot/api')
-const { ContractPromise } = require('@polkadot/api-contract')
+const { ApiPromise, Keyring, WsProvider } = require('@polkadot/api')
+// const { ContractPromise } = require('@polkadot/api-contract')
 const R = require('ramda')
 const crypto = require('crypto')
+const BN = require('bn.js')
+
+
+function inspect(obj) {
+  return util.inspect(obj, false, null, true)
+}
 
 function hex(b) {
     if (typeof b != "string") {
@@ -31,7 +37,6 @@ const signAndSend = (target, signer) => {
     // Ready -> Broadcast -> InBlock -> Finalized
     const unsub = await target.signAndSend(
       signer, (result) => {
-        const humanized = result.toHuman()          
         if (result.status.isInBlock) {
           let error;
           for (const e of result.events) {
@@ -59,6 +64,39 @@ const signAndSend = (target, signer) => {
       }
     )
   })
+}
+
+async function txAccepted(txBuilder, signer, shouldSucceed = true) {
+    return await new Promise(async (resolve, _reject) => {
+        const unsub = await txBuilder.signAndSend(signer, { nonce: -1 }, (result) => {
+            if (result.status.isInBlock) {
+                let error;
+                for (const e of result.events) {
+                    const { event: { data, method, section } } = e;
+                    if (section === 'system' && method === 'ExtrinsicFailed') {
+                        if (shouldSucceed) {
+                            error = data[0];
+                        } else {
+                            unsub();
+                            resolve(error);
+                        }
+                    }
+                }
+                if (error) {
+                    console.error(`Extrinsic failed with error: ${error}`);
+                }
+                unsub();
+                resolve({
+                    hash: result.status.asInBlock,
+                    events: result.events,
+                });
+            } else if (result.status.isInvalid) {
+                assert.fail('Invalid transaction');
+                unsub();
+                resolve();
+            }
+        });
+    });
 }
 
 async function checkUntil(async_fn, timeout) {
@@ -95,25 +133,30 @@ async function checkUntilEq(async_fn, expected, timeout, verbose=true) {
   }
 }
 
-async function main() {
-  const endpoint = process.argv[2]
-  const targetFile = process.argv[3]
+//
+//
+//
+
+async function upload_and_instantiate_contract() {
+  const endpoint = process.env.ENDPOINT
+  const account = process.env.POLKADOT_ACCOUNT
+  if (!endpoint || !account) {
+    console.log('Please create your own .env file with `ENDPOINT` and `POLKADOT_ACCOUNT`.')
+    return process.exit(1)
+  }
+  const targetFile = process.argv[2]
   if (!endpoint || !targetFile) {
-    console.log('Usage: node upload.js [ws://your_endpoint_addr:port] [path/to/yours.contract]')
+    console.log('Usage: node upload.js [path/to/yours.contract]')
     return process.exit(1)
   }
   if (!fs.existsSync(targetFile)) {
     console.log(`${targetFile} not exists.`)
     return process.exit(1)
   }
-  if (!process.env.POLKADOT_ACCOUNT) {
-    conole.log('Your need setup your account with `POLKADOT_ACCOUNT` environment.')
-    return process.exit(1)
-  }
-
   const contractFile = JSON.parse(fs.readFileSync(targetFile))
 
   // Initialization
+  console.log('Connecting to', endpoint, '...')
   const api = await ApiPromise.create({
     provider: new WsProvider(endpoint),
     types: {
@@ -122,48 +165,40 @@ async function main() {
     },
     noInitWarn: true,
   })
-  const keyring = new Keyring({ type: 'sr25519' });
+  console.log('Connected.')
+
+  const keyring = new Keyring({ type: 'sr25519' })
   const user = keyring.addFromUri(process.env.POLKADOT_ACCOUNT)
-  console.log('Operator: ', user.address)
-
-  //
-  // grab cluster & pruntime information from chain so we don't need setup manually.
-  //
-
-  const clusters = {}
-  {
-    const result = await api.query.phalaFatContracts.clusters.entries()
-    result.forEach(([storageKey, value]) => {
-      const clusterId = storageKey.toHuman()
-      const clusterInfo = value.unwrap().toHuman()
-      clusters[clusterId] = clusterInfo
-    })
+  const accountInfo = await api.query.system.account(user.address)
+  const free = accountInfo.data.free.div(new BN(1e10)) / 100
+  if (free < 20) {
+    console.log('Not enough balance. Please transfer some tokens not less then 20 PHA to', user.address)
+    return process.exit(1)
   }
-  console.log('Registered clusters:', clusters)
+  console.log(`Account ${user.address} has ${free} PHA.`)
 
-  const clusterId = R.head(R.keys(clusters))
+  const phatRegistry = await Phala.OnChainRegistry.create(api)
 
-  // const result = await api.query.phalaFatContracts.clusterWorkers(clusterId)
-  // console.log(result.toHuman())
-
-  let pruntimeURL = ''
-  {
-    const result = await api.query.phalaRegistry.endpoints(...clusters[clusterId].workers)
-    pruntimeURL = R.path(['V1', '0'], result.toHuman())
-  }
-  console.log('PruntimeURL: ', pruntimeURL)
+  const clusterId = phatRegistry.clusterId
+  const clusterInfo = phatRegistry.clusterInfo
+  const pruntimeURL = phatRegistry.pruntimeURL
+  console.log('Cluster ID:', clusterId)
+  console.log('PruntimeURL:', pruntimeURL)
 
   //
   // Pick the instantiate function
   //
 
   const initSelector = R.pipe(
-    // R.filter((c) => c.label === 'default' || c.label === 'new'),
-    R.filter((c) => c.label === 'default'),
+    R.filter((c) => c.label === 'default' || c.label === 'new'),
     R.sortBy((c) => c.args.length),
     i => R.head(i),
     (i) => i ? i.selector : undefined,
   )(contractFile.V3.spec.constructors)
+  if (!initSelector) {
+    console.log('No default constructor found.')
+    return process.exit(1)
+  }
   console.log('Target Contract codeHash & initSelector: ', contractFile.source.hash, initSelector)
 
   /**
@@ -171,10 +206,22 @@ async function main() {
    */
 
   console.log('Transfer to cluster...')
-  await signAndSend(api.tx.phalaFatContracts.transferToCluster(2e12, clusterId, user.address), user)
+  try {
+    await signAndSend(api.tx.phalaFatContracts.transferToCluster(2e12, clusterId, user.address), user)
+  } catch (err) {
+    console.log(`Transfer to cluster failed: ${err}`)
+    console.error(err)
+    return process.exit(1)
+  }
 
   console.log('Uploading to cluster...')
-  await signAndSend(api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode', contractFile.source.wasm), user)
+  try {
+    await signAndSend(api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode', contractFile.source.wasm), user)
+  } catch (err) {
+    console.log(`Upload failed: ${err}`)
+    console.error(err)
+    return process.exit(1)
+  }
 
   // The sleep may not need
   await sleep(10_000);
@@ -183,47 +230,56 @@ async function main() {
   // Estimate instantiate fee.
   //
   const salt = hex(crypto.randomBytes(4))
-  {
+  try {
     console.log('Uploaded. Estimate instantiate fee...')
     const { instantiate } = await Phala.create({
       api: api.clone(),
       baseURL: pruntimeURL,
-      contractId: clusters[clusterId].systemContract,
+      contractId: clusterInfo.systemContract,
       autoDeposit: true
     })
     const cert = await Phala.signCertificate({ api, pair: user })
-    const instantiateReturns = await instantiate({
+    console.log('codeHash: ', contractFile.source.hash)
+    const result = await instantiate({
       codeHash: contractFile.source.hash,
       salt,
       instantiateData: initSelector,
       deposit: 0,
       transfer: 0,
     }, cert)
-    const response = api.createType('InkResponse', instantiateReturns)
-    const rawReturns = R.path(['nonce', 'result', 'ok', 'inkMessageReturn'], response.toJSON())
-    const returns = api.createType('ContractInstantiateResult', rawReturns)
-    console.log('estimate instantiate fee: ', initSelector, util.inspect(returns.toHuman(), false, null, true))
+    console.log('estimate instantiate fee: ', initSelector, util.inspect(result.toHuman(), false, null, true))
+  } catch (err) {
+    console.log(`Estimate instantiate fee failed: ${err}`)
+    console.error(err)
+    return process.exit(1)
   }
 
   console.log('Instantiating...')
-  const instantiateResult = await signAndSend(
-    api.tx.phalaFatContracts.instantiateContract(
-      { 'WasmCode': contractFile.source.hash },
-      initSelector,
-      salt,
-      clusterId,
-      0,
-      1e12,
-      null,
-      0
-    ),
-    user
-  )
+  let instantiateResult
+  try {
+    instantiateResult = await signAndSend(
+      api.tx.phalaFatContracts.instantiateContract(
+        { 'WasmCode': contractFile.source.hash },
+        initSelector,
+        salt,
+        clusterId,
+        0,
+        1e12,
+        null,
+        0
+      ),
+      user
+    )
+  } catch (err) {
+    console.log(`Instantiate failed: ${err}`)
+    console.error(err)
+    return process.exit(1)
+  }
 
   const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), instantiateResult.events)
   console.log('instantiateEvent: ', instantiateEvent)
   const contractId = R.path(['event', 'data', 'contract'], instantiateEvent)
-  console.log('Target contract ID: ', contractId)
+  console.log('Instantiated contract ID: ', contractId)
 
   try {
     await checkUntilEq(
@@ -256,6 +312,8 @@ async function main() {
 
   console.log('Contract uploaded & instantiated: ', contractId)
 }
+
+const main = upload_and_instantiate_contract
 
 main().then(() => process.exit(0)).catch(err => {
   console.error(err)
