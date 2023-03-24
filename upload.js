@@ -232,8 +232,10 @@ async function upload_and_instantiate_contract() {
   const salt = hex(crypto.randomBytes(4))
   try {
     console.log('Uploaded. Estimate instantiate fee...')
+    const cloned = api.clone()
+    await cloned.isReady
     const { instantiate } = await Phala.create({
-      api: api.clone(),
+      api: cloned,
       baseURL: pruntimeURL,
       contractId: clusterInfo.systemContract,
       autoDeposit: true
