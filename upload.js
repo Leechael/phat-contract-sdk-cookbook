@@ -169,7 +169,7 @@ async function upload_and_instantiate_contract() {
   console.log('Connected.')
 
   const keyring = new Keyring({ type: 'sr25519' })
-  const user = keyring.addFromUri(process.env.POLKADOT_ACCOUNT)
+  const user = pair = keyring.addFromUri(process.env.POLKADOT_ACCOUNT)
   const accountInfo = await api.query.system.account(user.address)
   const free = accountInfo.data.free.div(new BN(1e10)) / 100
   if (free < 20) {
@@ -206,7 +206,10 @@ async function upload_and_instantiate_contract() {
   console.log('Upload codes...')
   const codePromise = new Phala.PinkCodePromise(api, phatRegistry, contractFile, contractFile.source.wasm)
   const { result: uploadResult } = await signAndSend(codePromise.tx.new({}), user)
-  await uploadResult.waitFinalized(user, 120_000)
+  {
+    const cert = await Phala.signCertificate({ pair, api })
+    await uploadResult.waitFinalized(user, cert, 120_000)
+  }
 
   console.log('Code ready in cluster.')
 
@@ -217,7 +220,8 @@ async function upload_and_instantiate_contract() {
   let instantiateResult
   try {
     const { blueprint } = uploadResult // Or use `blueprintPromise` instead: new Phala.PinkBlueprintPromise(api, phatRegistry, contractFile, contractFile.source.hash)
-    const { gasRequired, storageDeposit, salt } = await blueprint.query.new(user) // Support instantiate arguments.
+    const cert = await Phala.signCertificate({ pair, api })
+    const { gasRequired, storageDeposit, salt } = await blueprint.query.new(user, cert) // Support instantiate arguments.
     const response = await signAndSend(
       blueprint.tx.new({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
       user
@@ -242,7 +246,8 @@ async function upload_and_instantiate_contract() {
   //
   // query test. 
   //
-  const totalQueryResponse = await contract.query.getTotalBadges(user)
+  const cert = await Phala.signCertificate({ pair, api })
+  const totalQueryResponse = await contract.query.getTotalBadges(user, cert)
   const total = totalQueryResponse.output.toJSON()
   console.log('total:', total)
 }

@@ -19,10 +19,10 @@
   resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.1.tgz#b251c70f824ce3ca7f8dc3df08d58f005cc0507c"
   integrity sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw==
 
-"@phala/sdk@^0.4.0-nightly-20230405":
-  version "0.4.0-nightly-20230405"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.4.0-nightly-20230405.tgz#223988b6b7e9e2e798221bc60fadb9f62fe3c5d5"
-  integrity sha512-rTPzKm/7RcZaD0Hb1bYUatT86w6qNeO9Qo0v1RLLwug7Ca/bjg/mJMvVn3H/1KIabgBHeVqHrfo6R7ggWFH5vQ==
+"@phala/sdk@^0.4.0-nightly-20230405-2":
+  version "0.4.0-nightly-20230405-2"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.4.0-nightly-20230405-2.tgz#954ffeeccc1f59665d7aaa8ae8e265c9e15ad6f0"
+  integrity sha512-29Da9lLnmZ0mGWQeZMd2cLOXVBRLQ7tNq7WXfdSTKUD9VQuNrzCZIITWvqzCcVaKP+tr6Q9tN3Vr3pcD4fRfig==
   dependencies:
     "@phala/typedefs" "^0.2.32"
     "@polkadot/api" "^9.14.2"
