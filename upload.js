@@ -5,9 +5,6 @@ const fs = require('fs')
 const Phala = require('@phala/sdk')
 const { typeDefinitions } = require('@polkadot/types');
 const { ApiPromise, Keyring, WsProvider } = require('@polkadot/api')
-// const { ContractPromise } = require('@polkadot/api-contract')
-const R = require('ramda')
-const crypto = require('crypto')
 const BN = require('bn.js')
 
 
@@ -51,9 +48,10 @@ const signAndSend = (target, signer) => {
             reject(error);
           } else {
             resolve({
-              hash: result.status.asInBlock.toHuman(),
+              hash: result.status.asInBlock.toString(),
               // @ts-ignore
               events: result.toHuman().events,
+              result,
             });
           }
         } else if (result.status.isInvalid) {
@@ -155,6 +153,9 @@ async function upload_and_instantiate_contract() {
   }
   const contractFile = JSON.parse(fs.readFileSync(targetFile))
 
+  // const abi = new Abi(contractFile)
+  // console.log(abi.constructors)
+
   // Initialization
   console.log('Connecting to', endpoint, '...')
   const api = await ApiPromise.create({
@@ -180,139 +181,70 @@ async function upload_and_instantiate_contract() {
   const phatRegistry = await Phala.OnChainRegistry.create(api)
 
   const clusterId = phatRegistry.clusterId
-  const clusterInfo = phatRegistry.clusterInfo
+  // const clusterInfo = phatRegistry.clusterInfo
   const pruntimeURL = phatRegistry.pruntimeURL
   console.log('Cluster ID:', clusterId)
-  console.log('PruntimeURL:', pruntimeURL)
+  console.log('Pruntime Endpoint URL:', pruntimeURL)
 
-  //
-  // Pick the instantiate function
-  //
+  const balance = await phatRegistry.getClusterBalance(user, user.address)
+  console.log('Cluster Balance:', balance.total.toPrimitive() / 1e12, balance.free.toPrimitive() / 1e12)
 
-  const initSelector = R.pipe(
-    R.filter((c) => c.label === 'default' || c.label === 'new'),
-    R.sortBy((c) => c.args.length),
-    i => R.head(i),
-    (i) => i ? i.selector : undefined,
-  )(contractFile.V3.spec.constructors)
-  if (!initSelector) {
-    console.log('No default constructor found.')
-    return process.exit(1)
-  }
-  console.log('Target Contract codeHash & initSelector: ', contractFile.source.hash, initSelector)
-
-  /**
-   * Upload & instantiate contract.
-   */
-
-  console.log('Transfer to cluster...')
-  try {
-    await signAndSend(api.tx.phalaFatContracts.transferToCluster(2e12, clusterId, user.address), user)
-  } catch (err) {
-    console.log(`Transfer to cluster failed: ${err}`)
-    console.error(err)
-    return process.exit(1)
+  if ((balance.free.toPrimitive() / 1e12) < 10) {
+    console.log('Transfer to cluster...')
+    try {
+      await signAndSend(phatRegistry.transferToCluster(user.address, 1e12 * 10), user)
+    } catch (err) {
+      console.log(`Transfer to cluster failed: ${err}`)
+      console.error(err)
+      return process.exit(1)
+    }
   }
 
-  console.log('Uploading to cluster...')
-  try {
-    await signAndSend(api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode', contractFile.source.wasm), user)
-  } catch (err) {
-    console.log(`Upload failed: ${err}`)
-    console.error(err)
-    return process.exit(1)
-  }
+  //
+  // Step 1: Upload with PinkCodePromise
+  //
+  console.log('Upload codes...')
+  const codePromise = new Phala.PinkCodePromise(api, phatRegistry, contractFile, contractFile.source.wasm)
+  const { result: uploadResult } = await signAndSend(codePromise.tx.new({}), user)
+  await uploadResult.waitFinalized(user, 120_000)
 
-  // The sleep may not need
-  await sleep(10_000);
+  console.log('Code ready in cluster.')
 
   //
-  // Estimate instantiate fee.
+  // Step 2: instantiate with PinkBlueprintPromise
   //
-  const salt = hex(crypto.randomBytes(4))
-  try {
-    console.log('Uploaded. Estimate instantiate fee...')
-    const cloned = api.clone()
-    await cloned.isReady
-    const { instantiate } = await Phala.create({
-      api: cloned,
-      baseURL: pruntimeURL,
-      contractId: clusterInfo.systemContract,
-      autoDeposit: true
-    })
-    const cert = await Phala.signCertificate({ api, pair: user })
-    console.log('codeHash: ', contractFile.source.hash)
-    const result = await instantiate({
-      codeHash: contractFile.source.hash,
-      salt,
-      instantiateData: initSelector,
-      deposit: 0,
-      transfer: 0,
-    }, cert)
-    console.log('estimate instantiate fee: ', initSelector, util.inspect(result.toHuman(), false, null, true))
-  } catch (err) {
-    console.log(`Estimate instantiate fee failed: ${err}`)
-    console.error(err)
-    return process.exit(1)
-  }
-
   console.log('Instantiating...')
   let instantiateResult
   try {
-    instantiateResult = await signAndSend(
-      api.tx.phalaFatContracts.instantiateContract(
-        { 'WasmCode': contractFile.source.hash },
-        initSelector,
-        salt,
-        clusterId,
-        0,
-        1e12,
-        null,
-        0
-      ),
+    const { blueprint } = uploadResult // Or use `blueprintPromise` instead: new Phala.PinkBlueprintPromise(api, phatRegistry, contractFile, contractFile.source.hash)
+    const { gasRequired, storageDeposit, salt } = await blueprint.query.new(user) // Support instantiate arguments.
+    const response = await signAndSend(
+      blueprint.tx.new({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
       user
     )
+    instantiateResult = response.result
+    await instantiateResult.waitFinalized()
   } catch (err) {
     console.log(`Instantiate failed: ${err}`)
     console.error(err)
     return process.exit(1)
   }
 
-  const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), instantiateResult.events)
-  console.log('instantiateEvent: ', instantiateEvent)
-  const contractId = R.path(['event', 'data', 'contract'], instantiateEvent)
-  console.log('Instantiated contract ID: ', contractId)
-
-  try {
-    await checkUntilEq(
-      async () => {
-        const result = await api.query.phalaFatContracts.clusterContracts(clusterId)
-        const contractIds = result.map(i => i.toString())
-        return contractIds.filter((id) => id === contractId).length
-      },
-      1,
-      1000 * 60
-    )
-  } catch (err) {
-    throw new Error('Failed to check contract in cluster: may be initialized failed in cluster')
-  }
-
-  console.log(`Pooling: ensure contract exists in registry (${60 * 4} secs timeout)`)
-  await checkUntil(
-    async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
-    4 * 60
-  )
-
-  console.info('Auto staking to the contract...');
-  await signAndSend(
-    api.tx.phalaFatTokenomic.adjustStake(
-      contractId,
-      1e10,  // stake 1 cent
-    ),
-    user
-  )
-
+  const { contractId, contract } = instantiateResult
   console.log('Contract uploaded & instantiated: ', contractId)
+
+  //
+  // Step 3: adjust staking for the contract (optional)
+  //
+  console.info(`Auto staking to the contract...`);
+  await signAndSend(api.tx.phalaPhatTokenomic.adjustStake(contractId, 1e10), user)
+
+  //
+  // query test. 
+  //
+  const totalQueryResponse = await contract.query.getTotalBadges(user)
+  const total = totalQueryResponse.output.toJSON()
+  console.log('total:', total)
 }
 
 const main = upload_and_instantiate_contract
