@@ -158,14 +158,8 @@ async function upload_and_instantiate_contract() {
 
   // Initialization
   console.log('Connecting to', endpoint, '...')
-  const api = await ApiPromise.create({
-    provider: new WsProvider(endpoint),
-    types: {
-      ...Phala.types,
-      ...typeDefinitions,
-    },
-    noInitWarn: true,
-  })
+  const provider = new WsProvider(endpoint)
+  const api = await ApiPromise.create(Phala.options({ provider, noInitWarn: true }))
   console.log('Connected.')
 
   const keyring = new Keyring({ type: 'sr25519' })
@@ -221,7 +215,7 @@ async function upload_and_instantiate_contract() {
   try {
     const { blueprint } = uploadResult // Or use `blueprintPromise` instead: new Phala.PinkBlueprintPromise(api, phatRegistry, contractFile, contractFile.source.hash)
     const cert = await Phala.signCertificate({ pair, api })
-    const { gasRequired, storageDeposit, salt } = await blueprint.query.new(user, cert) // Support instantiate arguments.
+    const { gasRequired, storageDeposit, salt } = await blueprint.query.new(user.address, { cert }) // Support instantiate arguments.
     const response = await signAndSend(
       blueprint.tx.new({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
       user
@@ -247,9 +241,35 @@ async function upload_and_instantiate_contract() {
   // query test. 
   //
   const cert = await Phala.signCertificate({ pair, api })
-  const totalQueryResponse = await contract.query.getTotalBadges(user, cert)
+  const totalQueryResponse = await contract.query.getTotalBadges(user.address, { cert })
   const total = totalQueryResponse.output.toJSON()
   console.log('total:', total)
+
+  {
+    let name = `Badge${new Date().getTime()}`
+    // // costs estimation
+    const cert = await Phala.signCertificate({ pair, api })
+    const { gasRequired, storageDeposit } = await contract.query.newBadge(pair.address, { cert }, name)
+    console.log('gasRequired & storageDeposit: ', gasRequired.refTime.toBn().div(new BN(1e10)).toNumber() / 100, storageDeposit.asCharge.toHuman())
+
+    // transaction / extrinct
+    const options = {
+      gasLimit: gasRequired.refTime,
+      storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
+    }
+    const { result } = await signAndSend(contract.tx.newBadge(options, name), pair)
+    await result.waitFinalized()
+    console.log('submited')
+  }
+
+  {
+    // query
+    const cert = await Phala.signCertificate({ pair, api })
+    const totalQueryResponse = await contract.query.getTotalBadges(pair.address, { cert })
+    const total = totalQueryResponse.output.toJSON()
+    console.log('total:', total)
+  }
+}
 }
 
 const main = upload_and_instantiate_contract

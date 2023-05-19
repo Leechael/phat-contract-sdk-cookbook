@@ -46,8 +46,14 @@ async function main() {
       if (last) {
         lastSequence = last
         for (let rec of newRecords) {
-          const d = new Date(rec['timestamp'])
-          console.log(`#${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
+          if (rec['type'] === 'Log') {
+            const d = new Date(rec['timestamp'])
+            console.log(`#${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
+          } else if (rec['type'] === 'MessageOutput') {
+            console.log(`#${rec['blockNumber']} ${rec['output']}`)
+          } else {
+            console.log(`#${rec['blockNumber']} ${JSON.stringify(rec)}`)
+          }
         }
       }
     }
