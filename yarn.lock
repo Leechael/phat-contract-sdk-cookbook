@@ -19,7 +19,7 @@
   resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.1.tgz#b251c70f824ce3ca7f8dc3df08d58f005cc0507c"
   integrity sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw==
 
-"@phala/sdk@beta":
+"@phala/sdk@^0.4.1-nightly-20230506":
   version "0.4.1-nightly-20230506"
   resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.4.1-nightly-20230506.tgz#46bbb0210f411eb5990540cab6dd1a3200730f64"
   integrity sha512-byXR5Tq7YAl8oRsDfmVZQwU7tj6bkFv7HclYRrXvE5YDWwCUheqE2m+CMv9QdJGqNgRR4KWCg9Hg4XQ6ZysEZQ==
