@@ -1,7 +1,6 @@
 require('dotenv').config()
 
-const Phala = require('@phala/sdk')
-const { typeDefinitions } = require('@polkadot/types');
+const { options, OnChainRegistry, PinkLoggerContractPromise } = require('@phala/sdk')
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 const R = require('ramda');
 
@@ -17,29 +16,30 @@ async function main() {
     return process.exit(1)
   }
   const contractId = process.argv[2]
-  if (!contractId) {
-    console.log('Usage: node tail.js [contractId]')
-    return process.exit(1)
-  }
 
-  const api = await ApiPromise.create({
+  const api = await ApiPromise.create(options({
     provider: new WsProvider(endpoint),
-    types: {
-      ...Phala.types,
-      ...typeDefinitions,
-      CheckMqSequence: null,
-    },
     noInitWarn: true,
-  })
+  }))
 
-  const phatRegistry = await Phala.OnChainRegistry.create(api)
-  const pinkLogger = await Phala.PinkLoggerContractPromise.create(api, phatRegistry, phatRegistry.systemContract)
+  const phatRegistry = await OnChainRegistry.create(api)
+
+  const pinkLogger = await PinkLoggerContractPromise.create(api, phatRegistry, phatRegistry.systemContract)
+
+  // logserver tail support comes with getInfo API, so if getInfo is not available, we fallback the original approach.
+  // @see https://github.com/Phala-Network/phala-blockchain/pull/1352
+  let useTail = true
+  try {
+    await pinkLogger.getInfo()
+  } catch (_err) {
+    useTail = false
+  }
 
   const intervalMs = 1_500
 
   let lastSequence = -1
   while (true) {
-    const { records } = await pinkLogger.getLog(contractId)
+    const { records } = await (useTail ? pinkLogger.tail({ contract: contractId }) : pinkLogger.getLog(contractId))
     const newRecords = R.filter(i => i.sequence > lastSequence, records)
     if (newRecords.length > 0) {
       const last = R.last(R.map(R.prop('sequence'), newRecords))
@@ -48,11 +48,11 @@ async function main() {
         for (let rec of newRecords) {
           if (rec['type'] === 'Log') {
             const d = new Date(rec['timestamp'])
-            console.log(`#${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
+            console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
           } else if (rec['type'] === 'MessageOutput') {
-            console.log(`#${rec['blockNumber']} ${rec['output']}`)
+            console.log(`${rec['type']} #${rec['blockNumber']} ${rec['output']}`)
           } else {
-            console.log(`#${rec['blockNumber']} ${JSON.stringify(rec)}`)
+            console.log(`${rec['type']} ${JSON.stringify(rec)}`)
           }
         }
       }
