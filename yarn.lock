@@ -31,10 +31,10 @@
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.3.1.tgz#8831ef002114670c603c458ab8b11328406953a9"
   integrity sha512-EbqwksQwz9xDRGfDST86whPBgM65E0OH/pCgqW0GBVzO22bNE+NuIbeTb714+IfSjU3aRk47EUvXIb5bTsenKA==
 
-"@phala/sdk@^0.5.1-nightly-20230810":
-  version "0.5.1-nightly-20230810"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.5.1-nightly-20230810.tgz#c549c556444f192f1b8d0810066e3afafb19afbd"
-  integrity sha512-RovWFnbil1vKWzcXGbJWwLujhV+F0Rd8Yok1EAX8YBhRF/KedczMZCF8eB6gQ/OKDO48tvyhZIxVEenS0Gooxw==
+"@phala/sdk@^0.5.1-nightly-20230902":
+  version "0.5.1-nightly-20230902"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.5.1-nightly-20230902.tgz#0b73d2a6d47747c91727c948dbbf2ddd851e568f"
+  integrity sha512-iNDan4C5+UWYE9YORZ0xlT3P3Qpk4zQvzqp/C9lzz3A6NYw8FnaId8DleyDIbb7nfUVwJuTOnSpUthzW7NdGSA==
   dependencies:
     "@phala/typedefs" "^0.2.33"
     "@polkadot/api" "^10.9.1"
