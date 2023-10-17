@@ -1,26 +1,27 @@
 require('dotenv').config()
 
-const { options, OnChainRegistry, PinkLoggerContractPromise, signCertificate } = require('@phala/sdk')
-const { ApiPromise, WsProvider, Keyring } = require('@polkadot/api')
+const { options, OnChainRegistry } = require('@phala/sdk')
+const { ApiPromise, WsProvider } = require('@polkadot/api')
 const R = require('ramda');
-const argParser = require('minimist')
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function main() {
-  const argv = argParser(process.argv.slice(2))
-  const endpoint = argv.endpoint || process.env.ENDPOINT
-  const account = process.env.POLKADOT_ACCOUNT || '//Alice'
-  if (!endpoint || !account) {
-    console.log('Please create your own .env file with `ENDPOINT` and `POLKADOT_ACCOUNT`.')
+  const argv = require('arg')({
+    '--ws': String,
+    '--skip': [String],
+    '--interval': Number,
+  })
+  const endpoint = argv['--ws'] || process.env.ENDPOINT
+  if (!endpoint) {
+    console.log('You neeed specific the target endpoint with --ws')
     return process.exit(1)
   }
-  const contractId = argv._[0]
 
   let types = ['Log', 'MessageOutput', 'QueryIn', 'Event']
-  if (argv.skip) {
+  if (argv['--skip']) {
     if (typeof argv.skip === 'string') {
       types = R.filter(i => i !== argv.skip, types)
     } else {
@@ -28,14 +29,22 @@ async function main() {
     }
   }
 
+  const contractId = argv._[0]
+
+  const intervalMs = argv['--interval'] || 1500
+
   const api = await ApiPromise.create(options({
     provider: new WsProvider(endpoint),
     noInitWarn: true,
   }))
 
   const phatRegistry = await OnChainRegistry.create(api)
+  const pinkLogger = phatRegistry.loggerContract
 
-  const pinkLogger = await PinkLoggerContractPromise.create(api, phatRegistry, phatRegistry.systemContract)
+  if (!pinkLogger) {
+    console.log('No logger contract found')
+    return process.exit(1)
+  }
 
   // logserver tail support comes with getInfo API, so if getInfo is not available, we fallback the original approach.
   // @see https://github.com/Phala-Network/phala-blockchain/pull/1352
@@ -45,8 +54,6 @@ async function main() {
   } catch (_err) {
     useTail = false
   }
-
-  const intervalMs = 1_500
 
   let lastSequence = -1
   while (true) {

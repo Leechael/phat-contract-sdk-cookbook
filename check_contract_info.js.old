@@ -1,0 +1,147 @@
+
+require('dotenv').config()
+
+const Phala = require('@phala/sdk')
+const { ApiPromise, Keyring, WsProvider } = require('@polkadot/api')
+const { u8aToHex, hexAddPrefix } = require('@polkadot/util')
+const { Abi } = require('@polkadot/api-contract')
+const R = require('ramda');
+const { fetch } = require('undici')
+
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+const signAndSend = (target, signer) => {
+  return new Promise(async (resolve, reject) => {
+    // Ready -> Broadcast -> InBlock -> Finalized
+    const unsub = await target.signAndSend(
+      signer, (result) => {
+        if (result.status.isInBlock) {
+          let error;
+          for (const e of result.events) {
+            const { event: { data, method, section } } = e;
+            if (section === 'system' && method === 'ExtrinsicFailed') {
+              error = data[0];
+            }
+          }
+          // @ts-ignore
+          unsub();
+          if (error) {
+            reject(error);
+          } else {
+            resolve({
+              hash: result.status.asInBlock.toString(),
+              // @ts-ignore
+              events: result.toHuman().events,
+              result,
+            });
+          }
+        } else if (result.status.isInvalid) {
+          // @ts-ignore
+          unsub();
+          reject('Invalid transaction');
+        }
+      }
+    )
+  })
+}
+
+async function unsafeGetContractCodeHash(phatRegistry, contractId) {
+  const payload = await phatRegistry.phactory.getContractInfo({ contracts: [contractId] })
+  const codeHash = R.path(['contracts', 0, 'codeHash'], payload)
+  return codeHash
+}
+
+async function unsafeGetAbiFromPatronByCodeHash(codeHash) {
+  const codeHashWithoutPrefix = codeHash.indexOf('0x') === 0 ? codeHash.replace('0x', '') : codeHash
+  const resp = await fetch(`https://api.patron.works/buildSessions/metadata/${codeHashWithoutPrefix}`)
+  if (resp.status !== 200) {
+    let payload
+    try {
+      payload = await resp.json()
+    } catch (_err1) {
+      try {
+        const text = await resp.text()
+        throw new Error(`Failed to get abi from Patron: ${resp.status}: ${text}`)
+      } catch (_err2) {
+        throw new Error(`Unknown Error: ${resp.status}: ${_err2}`)
+      }
+    }
+    throw new Error(`Failed to get abi from Patron: ${resp.status}: ${R.propOr('Unknown Error', 'error', payload)}`)
+  }
+  return await resp.json()
+}
+
+async function unsafeGetAbiFromGitHubRepoByCodeHash(codeHash) {
+  const codeHashWithPrefix = codeHash.indexOf('0x') !== 0 ? `0x${codeHash}` : codeHash
+  const resp = await fetch(`https://leechael.github.io/phat-contract-artifacts/artifacts/${codeHashWithPrefix}/metadata.json`)
+  if (resp.status !== 200) {
+    throw new Error(`Failed to get abi from GitHub: ${resp.status}`)
+  }
+  return await resp.json()
+}
+
+async function unsafeGetWasmFromPatronByCodeHash(codeHash) {
+  const codeHashWithoutPrefix = codeHash.indexOf('0x') === 0 ? codeHash.replace('0x', '') : codeHash
+  const resp = await fetch(`https://api.patron.works/buildSessions/wasm/${codeHashWithoutPrefix}`)
+  if (resp.status !== 200) {
+    throw new Error(`Failed to get abi from Patron: ${resp.status}`)
+  }
+  const buffer = await resp.arrayBuffer()
+  return new Uint8Array(buffer)
+}
+
+
+async function main() {
+  const endpoint = process.env.ENDPOINT
+  const account = process.env.POLKADOT_ACCOUNT || '//Alice'
+  if (!endpoint || !account) {
+    console.log('Please create your own .env file with `ENDPOINT` and `POLKADOT_ACCOUNT`.')
+    return process.exit(1)
+  }
+  const contractId = process.argv[2]
+  if (!contractId) {
+    console.log('Usage: node tail.js [contractId]')
+    return process.exit(1)
+  }
+
+  const api = await ApiPromise.create(Phala.options({
+    provider: new WsProvider(endpoint),
+    noInitWarn: true,
+  }))
+  const phatRegistry = await Phala.OnChainRegistry.create(api)
+
+  const keyring = new Keyring({ type: 'sr25519' })
+  const user = pair = keyring.addFromUri(process.env.POLKADOT_ACCOUNT)
+  const cert = await Phala.signCertificate({ api, pair })
+
+  // Get the PinkLogger contract id.
+  // const result = await phatRegistry.systemContract.query['system::getDriver'](account.address, { cert }, 'PinkLogger')
+  // console.log(result)
+  // const pinkLogger = await Phala.PinkLoggerContractPromise.create(api, phatRegistry, phatRegistry.systemContract)
+
+  // const result1 = await phatRegistry.phactory.getContractInfo({ contracts: [contractId] })
+  // console.log(result1)
+
+  // const codeHash = await getContractCodeHash(phatRegistry, contractId)
+  // console.log(codeHash)
+
+  
+  // const metadata = await unsafeGetAbiFromGitHubRepoByCodeHash('0xda2659b09da536f015d3631f3215989c96c712c166dba9985c0a1ec647f54f0a')
+  const metadata = await unsafeGetAbiFromPatronByCodeHash('b5bd12e7c41bc66ee3d11eeee3deb0c79d80872f39ee9fe59adc318b1a4ace09')
+  const wasm = await unsafeGetWasmFromPatronByCodeHash('b5bd12e7c41bc66ee3d11eeee3deb0c79d80872f39ee9fe59adc318b1a4ace09')
+  const abi = new Abi(metadata)
+  const codePromise = new Phala.PinkCodePromise(api, phatRegistry, abi, wasm)
+  const { result: uploadResult } = await signAndSend(codePromise.upload(), user)
+  console.log('uploaded:', uploadResult.status.toJSON())
+  await uploadResult.waitFinalized(user, cert, 5_000)
+  // console.log(abi)
+  // const result = await getAbiFromPatronByCodeHash('0xeb65d30766360fb51fe01f638142ae4a5ef1ffbe66c016336b17977f4d5f7c29')
+  // console.log(result)
+}
+
+main().then(() => process.exit(0)).catch(err => {
+  console.error(err)
+  process.exit(1)
+})

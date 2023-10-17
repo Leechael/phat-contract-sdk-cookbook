@@ -31,10 +31,10 @@
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.3.1.tgz#8831ef002114670c603c458ab8b11328406953a9"
   integrity sha512-EbqwksQwz9xDRGfDST86whPBgM65E0OH/pCgqW0GBVzO22bNE+NuIbeTb714+IfSjU3aRk47EUvXIb5bTsenKA==
 
-"@phala/sdk@^0.5.1":
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.5.1.tgz#92d3d153bf7f71218dbbb0a9cdfc14edf5b16a6d"
-  integrity sha512-whkyA72tqcCwJPdZ+6/zedg3rg84RwvUhmVjQMwPKOeTCfkzmF/dQl3V+2z017AYOTSZQTfJw8uk6IpfoTmZjQ==
+"@phala/sdk@^0.5.3-nightly-20231013":
+  version "0.5.3-nightly-20231013"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.5.3-nightly-20231013.tgz#6060a667b0d5b39cc230fa06378b83154366fa0d"
+  integrity sha512-J4KlTpk5kqzjrH/J0LKopUnexTR9yliDc0NXiZuimd7mdfT9L2D7tDOgeeXQ2H6TYA4WDQ6m6YaK5c8P90Ay6w==
   dependencies:
     "@phala/typedefs" "^0.2.33"
     "@polkadot/api" "^10.9.1"
@@ -515,6 +515,11 @@ abitype@0.9.3:
   version "0.9.3"
   resolved "https://registry.yarnpkg.com/abitype/-/abitype-0.9.3.tgz#294d25288ee683d72baf4e1fed757034e3c8c277"
   integrity sha512-dz4qCQLurx97FQhnb/EIYTk/ldQ+oafEDUqC0VVIeQS1Q48/YWt/9YNfMmp9SLFqN41ktxny3c8aYxHjmFIB/w==
+
+arg@^5.0.2:
+  version "5.0.2"
+  resolved "https://registry.yarnpkg.com/arg/-/arg-5.0.2.tgz#c81433cc427c92c4dcf4865142dbca6f15acd59c"
+  integrity sha512-PYjyFOLKQ9y57JvQ6QLo8dAgNqswh8M1RMJYdQduT6xbWSgK36P/Z/v+p888pM69jMMfS8Xd8F6I1kQ/I9HUGg==
 
 asn1.js@^5.2.0:
   version "5.4.1"

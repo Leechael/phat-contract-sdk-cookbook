@@ -4,24 +4,40 @@ const { createPruntimeClient, PinkLoggerContractPromise } = require('@phala/sdk'
 const { Keyring } = require('@polkadot/api')
 const { waitReady } = require('@polkadot/wasm-crypto')
 const R = require('ramda');
-const argParser = require('minimist')
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function main() {
-  const argv = argParser(process.argv.slice(2))
-  const endpoint = argv.endpoint || process.env.ENDPOINT
-  const account = process.env.POLKADOT_ACCOUNT || '//Alice'
-  if (!endpoint || !account) {
-    console.log('Please create your own .env file with `ENDPOINT` and `POLKADOT_ACCOUNT`.')
+  const argv = require('arg')({
+    '--pruntime': String,
+    '--remotePubkey': String,
+    '--loggerContractId': String,
+    '--systemContractId': String,
+    '--skip': [String],
+    '--interval': Number,
+  })
+
+  if (!argv['--pruntime']) {
+    console.log('You neeed specific the target pruntime with --pruntime')
     return process.exit(1)
   }
-  const contractId = argv._[0]
+  if (!argv['--remotePubkey']) {
+    console.log('You neeed specific the remote pubkey with --remotePubkey')
+    return process.exit(1)
+  }
+  if (!argv['--loggerContractId']) {
+    console.log('You neeed specific the logger contract id with --loggerContractId')
+    return process.exit(1)
+  }
+  if (!argv['--systemContractId']) {
+    console.log('You neeed specific the system contract id with --systemContractId')
+    return process.exit(1)
+  }
 
   let types = ['Log', 'MessageOutput', 'QueryIn', 'Event']
-  if (argv.skip) {
+  if (argv['--skip']) {
     if (typeof argv.skip === 'string') {
       types = R.filter(i => i !== argv.skip, types)
     } else {
@@ -29,28 +45,15 @@ async function main() {
     }
   }
 
-  if (!argv.pruntime) {
-    console.log('You neeed specific the target pruntime with --pruntime')
-    return process.exit(1)
-  }
-  if (!argv.remotePubkey) {
-    console.log('You neeed specific the remote pubkey with --remotePubkey')
-    return process.exit(1)
-  }
-  if (!argv.loggerContractId) {
-    console.log('You neeed specific the logger contract id with --loggerContractId')
-    return process.exit(1)
-  }
-  if (!argv.systemContractId) {
-    console.log('You neeed specific the system contract id with --systemContractId')
-    return process.exit(1)
-  }
+  const contractId = argv._[0]
+
+  const intervalMs = argv['--interval'] || 1500
 
   await waitReady()
   const keyring = new Keyring({ type: 'sr25519' })
-  const pair = keyring.addFromUri(account)
-  const phactory = createPruntimeClient(argv.pruntime)
-  const pinkLogger = new PinkLoggerContractPromise(phactory, `0x${argv.remotePubkey}`, pair, `0x${argv.loggerContractId}`, `0x${argv.systemContractId}`)
+  const pair = keyring.addFromUri('//Alice')
+  const phactory = createPruntimeClient(argv['--pruntime'])
+  const pinkLogger = new PinkLoggerContractPromise(phactory, argv['--remotePubkey'], pair, argv['--loggerContractId'], argv['--systemContractId'])
 
   // logserver tail support comes with getInfo API, so if getInfo is not available, we fallback the original approach.
   // @see https://github.com/Phala-Network/phala-blockchain/pull/1352
@@ -60,8 +63,6 @@ async function main() {
   } catch (_err) {
     useTail = false
   }
-
-  const intervalMs = 1_500
 
   let lastSequence = -1
   while (true) {
