@@ -45,7 +45,7 @@ async function main() {
 
   const { output: systemVersionQuery } = await registry.systemContract.query['system::version'](cert.address, { cert })
   console.log('System Contract ID:', registry.systemContract.address.toHex())
-  console.log('System Version:', systemVersionQuery.asOk.toJSON())
+  console.log('System Contract Version:', systemVersionQuery.asOk.toJSON())
 
   console.log('')
 
@@ -65,8 +65,8 @@ async function main() {
 
   console.log('')
 
-  const { output: sidevmOperatorQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'SidevmOperation')
-  console.log('SidevmOperator Contract ID:', sidevmOperatorQuery.asOk.toHex())
+  const { output: sidevmOperationQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'SidevmOperation')
+  console.log('SidevmOperation Contract ID:', sidevmOperationQuery.asOk.toHex())
 }
 
 main().catch(console.error).finally(() => process.exit())
