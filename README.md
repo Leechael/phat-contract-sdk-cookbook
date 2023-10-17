@@ -1,4 +1,4 @@
-# Phat Contract SDK Bookbook
+# Phat Contract SDK Cookbook
 
 ## Usage
 
