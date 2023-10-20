@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@phala/sdk": "^0.5.4-nightly-20231019-2",
+    "@phala/sdk": "^0.5.4-nightly-20231020",
     "arg": "^5.0.2",
     "dotenv": "^16.0.3",
     "minimist": "^1.2.8",
