@@ -13,7 +13,7 @@ const argv = require('arg')({
 const locale = new Intl.NumberFormat('en-US')
 
 async function main() {
-  const ws = argv['--ws'] || process.env.WS_ENDPOINT
+  const ws = argv['--ws'] || process.env.ENDPOINT
   if (!ws) {
     throw new Error('No ws endpoint specified')
   }
