@@ -99,3 +99,12 @@ This script also have optional arguments:
     - `QueryIn`
     - `Event`
 - `--interval`: Optional. The offchain query interval duration, in milliseconds, between each call to pull log records.
+
+
+### Submit Contract Transaction without encrypt payload
+
+```
+node tx-plain.js
+```
+
+When submitting a contract transaction, you can enable the `plain` option to send the command payload without encryption. You can then debug the final payload in subscan.
