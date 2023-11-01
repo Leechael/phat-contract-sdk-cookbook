@@ -108,3 +108,12 @@ node tx-plain.js
 ```
 
 When submitting a contract transaction, you can enable the `plain` option to send the command payload without encryption. You can then debug the final payload in subscan.
+
+
+### Use random worker
+
+```
+node get-worker-list.js
+```
+
+This script example will print all available workers on screen and pick one randomly.
