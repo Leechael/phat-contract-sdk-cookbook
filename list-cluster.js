@@ -28,11 +28,6 @@ async function main() {
     console.log('Gas Price: ', clusterInfo.gasPrice.toNumber())
     console.log('Deposit Per Item:', clusterInfo.depositPerItem.toNumber(), '(', clusterInfo.depositPerItem.toNumber() / 1e12, 'PHA )')
     console.log('Deposit Per Byte:', clusterInfo.depositPerByte.toNumber(), '(', clusterInfo.depositPerByte.toNumber() / 1e12, 'PHA )')
-    console.log('Workers:')
-    for (let workerId of clusterInfo.workers) {
-      console.log('\t', workerId.toHex())
-    }
-    console.log('>> Total: ', clusterInfo.workers.length)
     console.log('')
   }
 }

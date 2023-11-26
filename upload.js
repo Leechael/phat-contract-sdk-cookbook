@@ -51,10 +51,10 @@ async function main() {
   const balance = await phatRegistry.getClusterBalance(user.address)
   console.log('Cluster Balance:', balance.total.toPrimitive() / 1e12, balance.free.toPrimitive() / 1e12)
 
-  if ((balance.free.toPrimitive() / 1e12) < 10) {
+  if ((balance.free.toPrimitive() / 1e12) < 500) {
     console.log('Transfer to cluster...')
     try {
-      await signAndSend(phatRegistry.transferToCluster(user.address, 1e12 * 10), user)
+      await signAndSend(phatRegistry.transferToCluster(user.address, 1e12 * 500), user)
     } catch (err) {
       console.log(`Transfer to cluster failed: ${err}`)
       console.error(err)
