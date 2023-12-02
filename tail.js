@@ -71,7 +71,7 @@ async function main() {
             const d = new Date(rec['timestamp'])
             console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
           } else if (rec['type'] === 'MessageOutput') {
-            console.log(`${rec['type']} #${rec['blockNumber']} ${rec['output']}`)
+            console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
           } else {
             console.log(`${rec['type']} ${JSON.stringify(rec)}`)
           }
