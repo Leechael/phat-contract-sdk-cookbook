@@ -1,7 +1,9 @@
 require('dotenv').config()
 
+const fs = require('fs')
 const { options, OnChainRegistry } = require('@phala/sdk')
 const { ApiPromise, WsProvider } = require('@polkadot/api')
+const { Abi } = require('@polkadot/api-contract')
 const R = require('ramda');
 
 async function sleep(ms) {
@@ -13,6 +15,10 @@ async function main() {
     '--ws': String,
     '--skip': [String],
     '--interval': Number,
+    '-f': Boolean,
+    '--abi': String,
+    '--type': String,
+    '--topic': String,
   })
   const endpoint = argv['--ws'] || process.env.ENDPOINT
   if (!endpoint) {
@@ -20,18 +26,28 @@ async function main() {
     return process.exit(1)
   }
 
-  let types = ['Log', 'MessageOutput', 'QueryIn', 'Event']
-  if (argv['--skip']) {
-    if (typeof argv.skip === 'string') {
-      types = R.filter(i => i !== argv.skip, types)
-    } else {
-      types = R.without(argv.skip, types)
-    }
+  if (argv['--skip'] && argv['--type']) {
+    console.log('You can only specific one of --skip and --type')
+    return process.exit(1)
   }
 
-  const contractId = argv._[0]
+  let type = ['Log', 'MessageOutput', 'QueryIn', 'Event']
+  if (argv['--skip']) {
+    if (typeof argv.skip === 'string') {
+      type = R.filter(i => i !== argv.skip, type)
+    } else {
+      type = R.without(argv.skip, type)
+    }
+  } else if (argv['--type'] && R.includes(argv['--type'], type)) {
+    type = argv['--type']
+  } else if (argv['--topic']) {
+    type = 'Event'
+  }
 
+  const polling = argv['-f']
   const intervalMs = argv['--interval'] || 1500
+
+  const contractId = argv._[0]
 
   const api = await ApiPromise.create(options({
     provider: new WsProvider(endpoint),
@@ -46,37 +62,45 @@ async function main() {
     return process.exit(1)
   }
 
-  // logserver tail support comes with getInfo API, so if getInfo is not available, we fallback the original approach.
-  // @see https://github.com/Phala-Network/phala-blockchain/pull/1352
-  let useTail = true
-  try {
-    await pinkLogger.getInfo()
-  } catch (_err) {
-    useTail = false
+  let abi = argv['--abi'] ? new Abi(fs.readFileSync(argv['--abi'], 'utf-8')) : null
+  const query = {
+    contract: contractId,
+    type,
+    topic: argv['--topic'],
+    abi,
   }
 
   let lastSequence = -1
   while (true) {
-    const { records } = await (useTail ? pinkLogger.tail(10000,{ contract: contractId }) : pinkLogger.getLog(contractId))
-    const newRecords = R.filter(i => i.sequence > lastSequence, records)
-    if (newRecords.length > 0) {
-      const last = R.last(R.map(R.prop('sequence'), newRecords))
-      if (last) {
-        lastSequence = last
-        for (let rec of newRecords) {
-          if (!R.includes(rec['type'], types)) {
-            continue
-          }
-          if (rec['type'] === 'Log') {
-            const d = new Date(rec['timestamp'])
-            console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
-          } else if (rec['type'] === 'MessageOutput') {
-            console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
-          } else {
-            console.log(`${rec['type']} ${JSON.stringify(rec)}`)
+    const { records } = await pinkLogger.tail(10000, query)
+    if (records) {
+      const newRecords = R.filter(i => i.sequence > lastSequence, records)
+      if (newRecords.length > 0) {
+        const last = R.last(R.map(R.prop('sequence'), newRecords))
+        if (last) {
+          lastSequence = last
+          for (let rec of newRecords) {
+            if (rec['type'] === 'Log') {
+              const d = new Date(rec['timestamp'])
+              console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
+            } else if (rec['type'] === 'MessageOutput') {
+              console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
+            } else if (rec['type'] === 'Event') {
+              if (rec.decoded) {
+                const args = rec.decoded.args.map((i, idx) => `${rec.decoded.event.args[idx].name}=${i.toHuman()}`)
+                console.log(`${rec['type']} #${rec['blockNumber']} contract=[${rec['contract']}] ${rec.decoded.event.identifier} \{${args.join(", ")}\}`)
+              } else {
+                console.log(`${rec['type']} #${rec['blockNumber']} contract=[${rec['contract']}] ${JSON.stringify(rec['topics'])}`)
+              }
+            } else {
+              console.log(`${rec['type']} ${JSON.stringify(rec)}`)
+            }
           }
         }
       }
+    }
+    if (!polling) {
+      break
     }
     await sleep(intervalMs)
   }
