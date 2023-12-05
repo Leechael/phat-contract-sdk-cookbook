@@ -1,9 +1,7 @@
 require('dotenv').config()
 
 const fs = require('fs')
-const { options, OnChainRegistry } = require('@phala/sdk')
-const { ApiPromise, WsProvider } = require('@polkadot/api')
-const { Abi } = require('@polkadot/api-contract')
+const { getLogger } = require('@phala/sdk')
 const R = require('ramda');
 
 async function sleep(ms) {
@@ -20,8 +18,8 @@ async function main() {
     '--type': String,
     '--topic': String,
   })
-  const endpoint = argv['--ws'] || process.env.ENDPOINT
-  if (!endpoint) {
+  const transport = argv['--ws'] || process.env.ENDPOINT
+  if (!transport) {
     console.log('You neeed specific the target endpoint with --ws')
     return process.exit(1)
   }
@@ -43,31 +41,21 @@ async function main() {
   } else if (argv['--topic']) {
     type = 'Event'
   }
-
   const polling = argv['-f']
   const intervalMs = argv['--interval'] || 1500
-
   const contractId = argv._[0]
 
-  const api = await ApiPromise.create(options({
-    provider: new WsProvider(endpoint),
-    noInitWarn: true,
-  }))
+  //
+  // END: parse arguments
+  //
 
-  const phatRegistry = await OnChainRegistry.create(api)
-  const pinkLogger = phatRegistry.loggerContract
+  const pinkLogger = await getLogger({ transport })
 
-  if (!pinkLogger) {
-    console.log('No logger contract found')
-    return process.exit(1)
-  }
-
-  let abi = argv['--abi'] ? new Abi(fs.readFileSync(argv['--abi'], 'utf-8')) : null
   const query = {
     contract: contractId,
     type,
     topic: argv['--topic'],
-    abi,
+    abi: argv['--abi'] ? fs.readFileSync(argv['--abi'], 'utf-8') : null,
   }
 
   let lastSequence = -1
