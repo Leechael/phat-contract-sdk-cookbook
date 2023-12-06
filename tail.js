@@ -17,6 +17,7 @@ async function main() {
     '--abi': String,
     '--type': String,
     '--topic': String,
+    '--nonce': String,
   })
   const transport = argv['--ws'] || process.env.ENDPOINT
   if (!transport) {
@@ -40,6 +41,8 @@ async function main() {
     type = argv['--type']
   } else if (argv['--topic']) {
     type = 'Event'
+  } else if (argv['--nonce']) {
+    type = 'MessageOutput'
   }
   const polling = argv['-f']
   const intervalMs = argv['--interval'] || 1500
@@ -56,6 +59,7 @@ async function main() {
     type,
     topic: argv['--topic'],
     abi: argv['--abi'] ? fs.readFileSync(argv['--abi'], 'utf-8') : null,
+    nonce: argv['--nonce'],
   }
 
   let lastSequence = -1
@@ -70,9 +74,9 @@ async function main() {
           for (let rec of newRecords) {
             if (rec['type'] === 'Log') {
               const d = new Date(rec['timestamp'])
-              console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
+              console.log(`${rec['type']} #${rec['blockNumber']} contract=[${rec['contract']}] [${d.toISOString()}] ${rec['message']}`)
             } else if (rec['type'] === 'MessageOutput') {
-              console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
+              console.log(`${rec['type']} #${rec['blockNumber']} contract=[${rec['contract']}] nonce=[${rec['nonce']}] ${JSON.stringify(rec['output'])}`)
             } else if (rec['type'] === 'Event') {
               if (rec.decoded) {
                 const args = rec.decoded.args.map((i, idx) => `${rec.decoded.event.args[idx].name}=${i.toHuman()}`)

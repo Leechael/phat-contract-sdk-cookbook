@@ -105,7 +105,7 @@ async function main() {
   const name = `Badge${new Date().getTime()}`
   const result = await contract.send.newBadge({ pair, cert, address: cert.address }, name)
   await result.waitFinalized()
-  console.log('trx submited')
+  console.log('trx submited with nonce:', result.nonce)
 
   //
   // query data after trx.
