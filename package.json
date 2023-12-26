@@ -4,7 +4,8 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@phala/sdk": "^0.5.7",
+    "@phala/sdk": "^0.6.0-beta.2",
+    "@polkadot/ui-keyring": "^3.6.4",
     "arg": "^5.0.2",
     "dotenv": "^16.0.3",
     "minimist": "^1.2.8",

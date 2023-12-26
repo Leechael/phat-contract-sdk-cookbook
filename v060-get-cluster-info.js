@@ -1,7 +1,6 @@
 require('dotenv').config()
 
-const { options, OnChainRegistry, getClient } = require('@phala/sdk')
-const { ApiPromise, WsProvider } = require('@polkadot/api')
+const { getClient } = require('@phala/sdk')
 
 const argv = require('arg')({
   '--ws': String,
@@ -33,12 +32,6 @@ async function main() {
     transport: ws,
     ...connectionOptions
   })
-  // const apiPromise = await ApiPromise.create(options({
-  //   provider: new WsProvider(ws),
-  //   noInitWarn: true
-  // }))
-  // const registry = await OnChainRegistry.create(apiPromise, connectionOptions)
-  const cert = await registry.getAnonymousCert()
 
   console.log('Connected via', ws)
   console.log('Cluster ID:', registry.clusterId)
@@ -47,8 +40,8 @@ async function main() {
 
   console.log('')
 
-  const { output: systemVersionQuery } = await registry.systemContract.query['system::version'](cert.address, { cert })
   console.log('System Contract ID:', registry.systemContract.address.toHex())
+  const { output: systemVersionQuery } = await registry.systemContract.q.system.version()
   console.log('System Contract Version:', systemVersionQuery.asOk.toJSON())
 
   console.log('')
@@ -64,12 +57,14 @@ async function main() {
 
   console.log('')
 
-  const { output: jsDelegateQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'JsDelegate')
+  // const { output: jsDelegateQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'JsDelegate')
+  const { output: jsDelegateQuery } = await registry.systemContract.q.system.getDriver({ args: ['JsDelegate'] })
   console.log('JsDelegate Contract ID:', jsDelegateQuery.asOk.toHex())
 
   console.log('')
 
-  const { output: sidevmOperationQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'SidevmOperation')
+  // const { output: sidevmOperationQuery } = await registry.systemContract.query['system::getDriver'](cert.address, { cert }, 'SidevmOperation')
+  const { output: sidevmOperationQuery } = await registry.systemContract.q.system.getDriver({ args: ['SidevmOperation'] })
   console.log('SidevmOperation Contract ID:', sidevmOperationQuery.asOk.toHex())
 }
 
