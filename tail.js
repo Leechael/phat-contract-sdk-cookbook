@@ -18,6 +18,7 @@ async function main() {
     '--type': String,
     '--topic': String,
     '--nonce': String,
+    '--clusterId': String,
   })
   const transport = argv['--ws'] || process.env.ENDPOINT
   if (!transport) {
@@ -32,10 +33,11 @@ async function main() {
 
   let type = ['Log', 'MessageOutput', 'QueryIn', 'Event']
   if (argv['--skip']) {
+    const skip = argv['--skip']
     if (typeof argv.skip === 'string') {
-      type = R.filter(i => i !== argv.skip, type)
+      type = R.filter(i => i !== skip, type)
     } else {
-      type = R.without(argv.skip, type)
+      type = R.without(skip, type)
     }
   } else if (argv['--type'] && R.includes(argv['--type'], type)) {
     type = argv['--type']
@@ -52,7 +54,7 @@ async function main() {
   // END: parse arguments
   //
 
-  const pinkLogger = await getLogger({ transport })
+  const pinkLogger = await getLogger({ transport, clusterId })
 
   const query = {
     contract: contractId,

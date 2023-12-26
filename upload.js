@@ -57,7 +57,7 @@ async function main() {
       await signAndSend(phatRegistry.transferToCluster(user.address, 1e12 * 500), user)
     } catch (err) {
       console.log(`Transfer to cluster failed: ${err}`)
-      console.error(err)
+      // console.error(err)
       return process.exit(1)
     }
   }
