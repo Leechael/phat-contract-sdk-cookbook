@@ -53,10 +53,10 @@
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.3.1.tgz#8831ef002114670c603c458ab8b11328406953a9"
   integrity sha512-EbqwksQwz9xDRGfDST86whPBgM65E0OH/pCgqW0GBVzO22bNE+NuIbeTb714+IfSjU3aRk47EUvXIb5bTsenKA==
 
-"@phala/sdk@^0.6.0-beta.2":
-  version "0.6.0-beta.2"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.6.0-beta.2.tgz#fd8881f141ac35325d19a2af658f977038bba5f9"
-  integrity sha512-GpgP7RL+H8UbijUr0C4E3hjgXZ0ElqUaMeUMhnZhIDseHrJ/itvXQI8tEjYpnj1jaoB/64kiXlJwZ/j1Aa2fIQ==
+"@phala/sdk@^0.6.0-beta.3":
+  version "0.6.0-beta.3"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.6.0-beta.3.tgz#5fac667d80c3ab5568446702ccc3ffcc1211d039"
+  integrity sha512-Snh2K/Soyv+WDcSxsQMH+U9zbesK/DXbaRWRm7Haoz9HWo8PLQFjVpIZf/pofBPK5sxhZXn0YqkSzuNnC2EF8w==
   dependencies:
     "@polkadot/api" "~10.11.1"
     "@polkadot/api-contract" "~10.11.1"

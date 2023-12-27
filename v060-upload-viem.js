@@ -76,10 +76,13 @@ async function main() {
   console.info(`Auto staking to the contract...`);
   await provider.adjustStake(contractId, 1e10)
 
+  contract.provider = provider
+
   //
   // query test. 
   //
-  const totalQueryResponse = await contract.query.getTotalBadges(cert.address, { cert })
+  // const totalQueryResponse = await contract.query.getTotalBadges(cert.address, { cert })
+  const totalQueryResponse = await contract.q.getTotalBadges()
   const total = totalQueryResponse.output.toJSON()
   console.log('total:', total)
 
@@ -87,14 +90,16 @@ async function main() {
   // trx with auto-deposit test.
   //
   const name = `Badge${new Date().getTime()}`
-  const result = await contract.send.newBadge({ cert, provider }, name)
+  // const result = await contract.send.newBadge({ cert, provider: provider }, name)
+  const result = await contract.exec.newBadge({ args: [name] })
   await result.waitFinalized()
   console.log('trx submited')
 
   //
   // query data after trx.
   //
-  const { output: after } = await contract.query.getTotalBadges(cert.address, { cert })
+  // const { output: after } = await contract.query.getTotalBadges(cert.address, { cert })
+  const { output: after } = await contract.q.getTotalBadges()
   console.log('total:', after.toJSON())
 }
 
