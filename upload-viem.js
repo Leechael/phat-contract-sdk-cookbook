@@ -1,7 +1,7 @@
 require('dotenv').config()
 
 const fs = require('fs')
-const { PinkCodePromise, getClient, unstable_EvmAccountMappingProvider } = require('@phala/sdk')
+const { PinkCodePromise, getClient, EvmAccountMappingProvider } = require('@phala/sdk')
 const { createWalletClient, http } = require('viem')
 const { mainnet } = require('viem/chains')
 const { privateKeyToAccount } = require('viem/accounts')
@@ -38,7 +38,7 @@ async function main() {
     transport: http()
   })
 
-  const provider = await unstable_EvmAccountMappingProvider.create(phatRegistry.api, walletClient, account)
+  const provider = await EvmAccountMappingProvider.create(phatRegistry.api, walletClient, account)
   const cert = await provider.signCertificate()
 
   //
@@ -56,7 +56,7 @@ async function main() {
   //
   console.log('Upload codes...')
   const codePromise = new PinkCodePromise(phatRegistry.api, phatRegistry, contractFile, contractFile.source.wasm)
-  const uploadResult = await codePromise.send({ unstable_provider: provider })
+  const uploadResult = await codePromise.send({ provider: provider })
   await uploadResult.waitFinalized()
   console.log('Code ready in cluster.')
 
@@ -64,7 +64,7 @@ async function main() {
   // Step 2: instantiate with PinkBlueprintPromise
   //
   console.log('Instantiating...')
-  const instantiateResult = await uploadResult.blueprint.send.new({ unstable_provider: provider })
+  const instantiateResult = await uploadResult.blueprint.send.new({ provider: provider })
   await instantiateResult.waitFinalized()
 
   const { contractId, contract } = instantiateResult
@@ -87,7 +87,7 @@ async function main() {
   // trx with auto-deposit test.
   //
   const name = `Badge${new Date().getTime()}`
-  const result = await contract.send.newBadge({ cert, unstable_provider: provider }, name)
+  const result = await contract.send.newBadge({ cert, provider: provider }, name)
   await result.waitFinalized()
   console.log('trx submited')
 
