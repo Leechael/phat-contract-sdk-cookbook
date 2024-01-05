@@ -20,6 +20,7 @@ async function main() {
     '--nonce': String,
     '--clusterId': String,
   })
+  const clusterId = argv['--clusterId'] || undefined
   const transport = argv['--ws'] || process.env.ENDPOINT
   if (!transport) {
     console.log('You neeed specific the target endpoint with --ws')

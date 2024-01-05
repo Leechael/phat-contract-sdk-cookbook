@@ -66,7 +66,7 @@ async function main() {
   //
   const codePromise = new PinkCodePromise(apiPromise, registry, contractFile, contractFile.source.wasm)
   const uploadResult = await signAndSend(codePromise.upload(), pair)
-  await uploadResult.waitFinalized(pair, cert)
+  await uploadResult.waitFinalized()
   const instantiateResult = await uploadResult.blueprint.send.new({ pair, cert, address: cert.address })
   await instantiateResult.waitFinalized()
   const { contractId, contract } = instantiateResult

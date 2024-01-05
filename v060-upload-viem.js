@@ -1,7 +1,7 @@
 require('dotenv').config()
 
 const fs = require('fs')
-const { PinkCodePromise, getClient, EvmAccountMappingProvider } = require('@phala/sdk')
+const { signAndSend, PinkCodePromise, getClient, EvmAccountMappingProvider } = require('@phala/sdk')
 const { createWalletClient, http } = require('viem')
 const { mainnet } = require('viem/chains')
 const { privateKeyToAccount } = require('viem/accounts')
@@ -39,7 +39,10 @@ async function main() {
   })
 
   const provider = await EvmAccountMappingProvider.create(phatRegistry.api, walletClient, account)
-  const cert = await provider.signCertificate()
+
+  console.log('Mapped address:', provider.address)
+
+  await provider.send(phatRegistry.transferToCluster(provider.address, 1e12 * 500))
 
   //
   //

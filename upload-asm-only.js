@@ -77,7 +77,7 @@ async function main() {
   console.log('Upload codes...')
   const codePromise = new PinkCodePromise(api, phatRegistry, contractFile, contractFile.source.wasm)
   const uploadResult = await signAndSend(codePromise.tx.new(), user)
-  await uploadResult.waitFinalized(user, cert)
+  await uploadResult.waitFinalized()
   console.log('Code ready in cluster.')
 
   //
