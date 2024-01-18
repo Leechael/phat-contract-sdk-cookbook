@@ -1,5 +1,5 @@
 {
-  "name": "phat-contract-cli-upload",
+  "name": "phat-contract-sdk-cookbook",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
