@@ -1,5 +1,6 @@
 require('dotenv').config()
 
+const { inspect } = require('util')
 const { getLogger } = require('@phala/sdk')
 const R = require('ramda');
 
@@ -19,6 +20,7 @@ async function main() {
     '--type': String,
     '--topic': String,
     '--blockNumber': Number,
+    '--inspect': Boolean,
   })
 
   if (!argv['--pruntime']) {
@@ -82,9 +84,12 @@ async function main() {
             if (blockNumber && rec.blockNumber !== blockNumber) {
               continue
             }
+            if (argv['--inspect']) {
+              console.log(inspect(rec, false, null, true))
+              continue
+            }
             if (rec['type'] === 'Log') {
               const d = new Date(rec['timestamp'])
-              console.log(rec)
               console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
             } else if (rec['type'] === 'MessageOutput') {
               console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
