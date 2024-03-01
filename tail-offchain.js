@@ -18,6 +18,7 @@ async function main() {
     '--abi': String,
     '--type': String,
     '--topic': String,
+    '--blockNumber': Number,
   })
 
   if (!argv['--pruntime']) {
@@ -49,6 +50,7 @@ async function main() {
   const polling = argv['-f']
   const intervalMs = argv['--interval'] || 1500
   const contractId = argv._[0]
+  const blockNumber = Number(argv['--blockNumber'])
 
   //
   // END: parse arguments
@@ -77,8 +79,12 @@ async function main() {
         if (last) {
           lastSequence = last
           for (let rec of newRecords) {
+            if (blockNumber && rec.blockNumber !== blockNumber) {
+              continue
+            }
             if (rec['type'] === 'Log') {
               const d = new Date(rec['timestamp'])
+              console.log(rec)
               console.log(`${rec['type']} #${rec['blockNumber']} [${d.toISOString()}] ${rec['message']}`)
             } else if (rec['type'] === 'MessageOutput') {
               console.log(`${rec['type']} #${rec['blockNumber']} ${JSON.stringify(rec['output'])}`)
