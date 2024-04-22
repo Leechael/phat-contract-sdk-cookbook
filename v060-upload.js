@@ -71,7 +71,7 @@ async function main() {
   // Step 1: Upload with PinkCodePromise
   //
   console.log('Upload codes...')
-  const codePromise = new PinkCodePromise(api, phatRegistry, contractFile, contractFile.source.wasm)
+  const codePromise = new PinkCodePromise(phatRegistry, contractFile, contractFile.source.wasm)
   const uploadResult = await signAndSend(codePromise.tx.new(), user)
   // await uploadResult.waitFinalized(user, cert)
   await uploadResult.waitFinalized()
